@@ -408,6 +408,7 @@ def test_category(path, glue_table, glue_database):
 
 @pytest.mark.parametrize("workgroup", [None, 0, 1, 2, 3])
 @pytest.mark.parametrize("encryption", [None, "SSE_S3", "SSE_KMS"])
+@pytest.mark.parametrize("ctas_approach", [False, True])
 def test_athena_encryption(
     path,
     path2,
@@ -415,6 +416,7 @@ def test_athena_encryption(
     glue_table,
     glue_table2,
     kms_key,
+    ctas_approach,
     encryption,
     workgroup,
     workgroup0,
@@ -444,7 +446,7 @@ def test_athena_encryption(
     wr.s3.wait_objects_exist(paths=paths, use_threads=False)
     df2 = wr.athena.read_sql_table(
         table=glue_table,
-        ctas_approach=True,
+        ctas_approach=ctas_approach,
         database=glue_database,
         encryption=encryption,
         workgroup=workgroup,
@@ -454,8 +456,7 @@ def test_athena_encryption(
         s3_output=path2,
     )
     assert wr.catalog.does_table_exist(database=glue_database, table=glue_table2) is False
-    assert len(df2.index) == 2
-    assert len(df2.columns) == 2
+    assert df2.shape == (2, 2)
 
 
 def test_athena_nested(path, glue_database, glue_table):
@@ -691,3 +692,30 @@ def test_catalog_columns(path, glue_table, glue_database):
     ensure_data_types_csv(df2)
 
     assert wr.catalog.delete_table_if_exists(database=glue_database, table=glue_table) is True
+
+
+def test_read_sql_query_wo_results(path, glue_database, glue_table):
+    wr.catalog.create_parquet_table(database=glue_database, table=glue_table, path=path, columns_types={"c0": "int"})
+    sql = f"ALTER TABLE {glue_database}.{glue_table} SET LOCATION '{path}dir/'"
+    df = wr.athena.read_sql_query(sql, database=glue_database, ctas_approach=False)
+    assert df.empty
+
+
+def test_read_sql_query_wo_results_ctas(path, glue_database, glue_table):
+    wr.catalog.create_parquet_table(database=glue_database, table=glue_table, path=path, columns_types={"c0": "int"})
+    sql = f"ALTER TABLE {glue_database}.{glue_table} SET LOCATION '{path}dir/'"
+    with pytest.raises(wr.exceptions.InvalidCtasApproachQuery):
+        wr.athena.read_sql_query(sql, database=glue_database, ctas_approach=True)
+
+
+def test_read_sql_query_duplicated_col_name(glue_database):
+    sql = "SELECT 1 AS foo, 2 AS foo"
+    df = wr.athena.read_sql_query(sql, database=glue_database, ctas_approach=False)
+    assert df.shape == (1, 2)
+    assert df.columns.to_list() == ["foo", "foo.1"]
+
+
+def test_read_sql_query_duplicated_col_name_ctas(glue_database):
+    sql = "SELECT 1 AS foo, 2 AS foo"
+    with pytest.raises(wr.exceptions.InvalidCtasApproachQuery):
+        wr.athena.read_sql_query(sql, database=glue_database, ctas_approach=True)

@@ -23,7 +23,7 @@ def test_sql(databases_parameters, db_type):
     df = get_df()
     if db_type == "redshift":
         df.drop(["binary"], axis=1, inplace=True)
-    engine = wr.catalog.get_engine(connection=f"aws-data-wrangler-{db_type}")
+    engine = wr.catalog.get_engine(connection=f"aws-data-wrangler-{db_type}", echo=False)
     index = True if engine.name == "redshift" else False
     wr.db.to_sql(
         df=df,
@@ -46,6 +46,7 @@ def test_sql(databases_parameters, db_type):
         database=databases_parameters[db_type]["database"],
         user=databases_parameters["user"],
         password=databases_parameters["password"],
+        echo=False,
     )
     dfs = wr.db.read_sql_query(
         sql=f"SELECT * FROM {databases_parameters[db_type]['schema']}.test_sql",
@@ -574,3 +575,37 @@ def test_spectrum_decimal_cast(path, path2, glue_table, glue_database, redshift_
     assert df2.c2[0] == Decimal((0, (2, 2, 2, 2, 2, 2), -5))
     assert df2.c3[0] == Decimal((0, (3, 3, 3, 3, 3, 3), -5))
     assert df2.c4[0] is None
+
+
+def test_postgresql_kwargs():
+    engine = wr.catalog.get_engine(connection="aws-data-wrangler-postgresql")
+    sql = """
+    create or replace function sleep (integer) returns time as '
+        declare
+            seconds alias for $1;
+            later time;
+            thetime time;
+        begin
+            thetime := timeofday()::timestamp;
+            later := thetime + (seconds::text || '' seconds'')::interval;
+            loop
+                if thetime >= later then
+                    exit;
+                else
+                    thetime := timeofday()::timestamp;
+                end if;
+            end loop;
+            return later;
+        end;
+    ' language plpgsql;
+    """
+    with engine.connect() as con:
+        con.execute(sql)
+    engine2 = wr.catalog.get_engine(
+        connection="aws-data-wrangler-postgresql", connect_args={"options": "-c statement_timeout=5s"}
+    )
+    df = wr.db.read_sql_query(sql="SELECT sleep(2)", con=engine2)
+    assert df.shape == (1, 1)
+    with pytest.raises(sqlalchemy.exc.OperationalError) as ex:
+        wr.db.read_sql_query(sql="SELECT sleep(6)", con=engine2)
+    assert "canceling statement due to statement timeout" in str(ex)

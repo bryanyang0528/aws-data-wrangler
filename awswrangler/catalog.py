@@ -13,6 +13,7 @@ import pandas as pd  # type: ignore
 import sqlalchemy  # type: ignore
 
 from awswrangler import _data_types, _utils, exceptions
+from awswrangler._config import apply_configs
 
 _logger: logging.Logger = logging.getLogger(__name__)
 
@@ -128,7 +129,8 @@ def delete_table_if_exists(database: str, table: str, boto3_session: Optional[bo
         return False
 
 
-def does_table_exist(database: str, table: str, boto3_session: Optional[boto3.Session] = None):
+@apply_configs
+def does_table_exist(database: str, table: str, boto3_session: Optional[boto3.Session] = None) -> bool:
     """Check if the table exists.
 
     Parameters
@@ -159,6 +161,7 @@ def does_table_exist(database: str, table: str, boto3_session: Optional[boto3.Se
         return False
 
 
+@apply_configs
 def create_parquet_table(
     database: str,
     table: str,
@@ -585,9 +588,12 @@ def get_tables(
     for db in dbs:
         args["DatabaseName"] = db
         response_iterator = paginator.paginate(**args)
-        for page in response_iterator:
-            for tbl in page["TableList"]:
-                yield tbl
+        try:
+            for page in response_iterator:
+                for tbl in page["TableList"]:
+                    yield tbl
+        except client_glue.exceptions.EntityNotFoundException:
+            continue
 
 
 def tables(
@@ -624,7 +630,7 @@ def tables(
 
     Returns
     -------
-    Iterator[Dict[str, Any]]
+    pandas.DataFrame
         Pandas Dataframe filled by formatted infos.
 
     Examples
@@ -671,7 +677,9 @@ def tables(
     return pd.DataFrame(data=df_dict)
 
 
-def search_tables(text: str, catalog_id: Optional[str] = None, boto3_session: Optional[boto3.Session] = None):
+def search_tables(
+    text: str, catalog_id: Optional[str] = None, boto3_session: Optional[boto3.Session] = None
+) -> Iterator[Dict[str, Any]]:
     """Get Pandas DataFrame of tables filtered by a search string.
 
     Parameters
@@ -973,7 +981,10 @@ def get_connection(
 
 
 def get_engine(
-    connection: str, catalog_id: Optional[str] = None, boto3_session: Optional[boto3.Session] = None
+    connection: str,
+    catalog_id: Optional[str] = None,
+    boto3_session: Optional[boto3.Session] = None,
+    **sqlalchemy_kwargs,
 ) -> sqlalchemy.engine.Engine:
     """Return a SQLAlchemy Engine from a Glue Catalog Connection.
 
@@ -988,6 +999,9 @@ def get_engine(
         If none is provided, the AWS account ID is used by default.
     boto3_session : boto3.Session(), optional
         Boto3 Session. The default boto3 session will be used if boto3_session receive None.
+    sqlalchemy_kwargs
+        keyword arguments forwarded to sqlalchemy.create_engine().
+        https://docs.sqlalchemy.org/en/13/core/engines.html
 
     Returns
     -------
@@ -1012,12 +1026,12 @@ def get_engine(
         _utils.ensure_postgresql_casts()
     if db_type in ("redshift", "postgresql"):
         conn_str: str = f"{db_type}+psycopg2://{user}:{password}@{host}:{port}/{database}"
-        return sqlalchemy.create_engine(
-            conn_str, echo=False, executemany_mode="values", executemany_values_page_size=100_000
-        )
+        sqlalchemy_kwargs["executemany_mode"] = "values"
+        sqlalchemy_kwargs["executemany_values_page_size"] = 100_000
+        return sqlalchemy.create_engine(conn_str, **sqlalchemy_kwargs)
     if db_type == "mysql":
         conn_str = f"mysql+pymysql://{user}:{password}@{host}:{port}/{database}"
-        return sqlalchemy.create_engine(conn_str, echo=False)
+        return sqlalchemy.create_engine(conn_str, **sqlalchemy_kwargs)
     raise exceptions.InvalidDatabaseType(  # pragma: no cover
         f"{db_type} is not a valid Database type." f" Only Redshift, PostgreSQL and MySQL are supported."
     )
@@ -1655,7 +1669,7 @@ def extract_athena_types(
 
     Returns
     -------
-    Tuple[Dict[str, str], Optional[Dict[str, str]]]
+    Tuple[Dict[str, str], Dict[str, str]]
         columns_types: Dictionary with keys as column names and vales as
         data types (e.g. {'col0': 'bigint', 'col1': 'double'}). /
         partitions_types: Dictionary with keys as partition names

@@ -45,10 +45,6 @@ class QueryCancelled(Exception):
     """QueryCancelled exception."""
 
 
-class AthenaQueryError(Exception):
-    """AthenaQueryError exception."""
-
-
 class EmptyDataFrame(Exception):
     """EmptyDataFrame exception."""
 
@@ -87,3 +83,11 @@ class InvalidRedshiftPrimaryKeys(Exception):
 
 class InvalidSchemaConvergence(Exception):
     """InvalidSchemaMerge exception."""
+
+
+class InvalidCtasApproachQuery(Exception):
+    """InvalidCtasApproachQuery exception."""
+
+
+class InvalidConfiguration(Exception):
+    """InvalidConfiguration exception."""
