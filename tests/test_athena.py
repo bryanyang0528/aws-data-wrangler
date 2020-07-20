@@ -127,7 +127,7 @@ def test_athena(path, glue_database, kms_key, workgroup0, workgroup1):
     for df2 in dfs:
         ensure_data_types(df=df2)
     df = wr.athena.read_sql_query(
-        sql="SELECT * FROM ".format(table),
+        sql="SELECT * FROM {}".format(table),
         database=glue_database,
         ctas_approach=False,
         workgroup=workgroup1,
