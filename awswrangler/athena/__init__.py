@@ -7,6 +7,7 @@ from awswrangler.athena._utils import (  # noqa
     get_query_execution,
     get_work_group,
     repair_table,
+    describe_table,
     start_query_execution,
     stop_query_execution,
     wait_query,
