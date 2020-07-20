@@ -6,6 +6,7 @@ import pandas as pd
 import pytest
 
 import awswrangler as wr
+
 from ._utils import (
     ensure_data_types,
     ensure_data_types_category,
@@ -13,8 +14,8 @@ from ._utils import (
     get_df,
     get_df_category,
     get_df_csv,
-    get_df_txt,
     get_df_list,
+    get_df_txt,
     get_query_long,
     get_time_str_with_random_suffix,
 )
@@ -137,8 +138,10 @@ def test_athena(path, glue_database, kms_key, workgroup0, workgroup1):
     ensure_data_types(df=df)
     wr.athena.repair_table(table=table, database=glue_database)
     assert len(wr.athena.describe_table(database=glue_database, table=table).index) > 0
-    assert wr.catalog.table(database=glue_database, table=table).to_dict() == \
-           wr.athena.describe_table(database=glue_database, table=table).to_dict()
+    assert (
+        wr.catalog.table(database=glue_database, table=table).to_dict()
+        == wr.athena.describe_table(database=glue_database, table=table).to_dict()
+    )
     wr.catalog.delete_table_if_exists(database=glue_database, table=table)
 
 
@@ -729,4 +732,4 @@ def test_parse_describe_table():
     df = get_df_txt()
     parsed_df = wr.athena._utils._parse_describe_table(df)
     assert parsed_df["Partition"].to_list() == [False, False, False, True, True]
-    assert parsed_df["Column Name"].to_list() == ['iint8', 'iint16', 'iint32', 'par0', 'par1']
+    assert parsed_df["Column Name"].to_list() == ["iint8", "iint16", "iint32", "par0", "par1"]

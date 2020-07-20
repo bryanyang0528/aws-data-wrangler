@@ -9,7 +9,7 @@ from typing import Any, Dict, Iterator, List, NamedTuple, Optional, Union
 import boto3  # type: ignore
 import pandas as pd  # type: ignore
 
-from awswrangler import _data_types, _utils, exceptions, sts, s3
+from awswrangler import _data_types, _utils, exceptions, s3, sts
 from awswrangler._config import apply_configs
 
 _QUERY_FINAL_STATES: List[str] = ["FAILED", "SUCCEEDED", "CANCELLED"]
@@ -109,9 +109,7 @@ def _get_workgroup_config(session: boto3.Session, workgroup: Optional[str] = Non
 
 
 def _fetch_txt_result(
-    query_metadata: _QueryMetadata,
-    keep_files: bool,
-    boto3_session: boto3.Session,
+    query_metadata: _QueryMetadata, keep_files: bool, boto3_session: boto3.Session,
 ) -> Union[pd.DataFrame, Iterator[pd.DataFrame]]:
     if query_metadata.output_location is None or query_metadata.output_location.endswith(".txt") is False:
         return pd.DataFrame()
@@ -130,7 +128,7 @@ def _fetch_txt_result(
         use_threads=False,
         boto3_session=boto3_session,
         names=query_metadata.dtype.keys(),
-        sep='\t',
+        sep="\t",
     )
     if keep_files is False:
         s3.delete_objects(path=[path, f"{path}.metadata"], use_threads=False, boto3_session=boto3_session)
@@ -142,7 +140,7 @@ def _parse_describe_table(df: pd.DataFrame) -> pd.DataFrame:
     target_df_dict: Dict[str, List] = {"Column Name": [], "Type": [], "Partition": [], "Comment": []}
     for index, col_name in origin_df_dict["col_name"].items():
         col_name = col_name.strip()
-        if col_name.startswith('#') or col_name == "":
+        if col_name.startswith("#") or col_name == "":
             pass
         elif col_name in target_df_dict["Column Name"]:
             index_col_name = target_df_dict["Column Name"].index(col_name)
@@ -473,14 +471,8 @@ def describe_table(
         kms_key=kms_key,
         boto3_session=session,
     )
-    query_metadata: _QueryMetadata = _get_query_metadata(
-        query_execution_id=query_id, boto3_session=session
-    )
-    raw_result = _fetch_txt_result(
-        query_metadata=query_metadata,
-        keep_files=True,
-        boto3_session=session,
-    )
+    query_metadata: _QueryMetadata = _get_query_metadata(query_execution_id=query_id, boto3_session=session)
+    raw_result = _fetch_txt_result(query_metadata=query_metadata, keep_files=True, boto3_session=session,)
     return _parse_describe_table(raw_result)
 
 
