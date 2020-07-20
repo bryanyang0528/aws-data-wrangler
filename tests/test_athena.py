@@ -100,7 +100,8 @@ def test_athena_ctas(path, path2, path3, glue_table, glue_table2, glue_database,
 
 
 def test_athena(path, glue_database, kms_key, workgroup0, workgroup1):
-    wr.catalog.delete_table_if_exists(database=glue_database, table="__test_athena")
+    table = "__test_athena"
+    wr.catalog.delete_table_if_exists(database=glue_database, table=table)
     paths = wr.s3.to_parquet(
         df=get_df(),
         path=path,
@@ -109,12 +110,12 @@ def test_athena(path, glue_database, kms_key, workgroup0, workgroup1):
         dataset=True,
         mode="overwrite",
         database=glue_database,
-        table="__test_athena",
+        table=table,
         partition_cols=["par0", "par1"],
     )["paths"]
     wr.s3.wait_objects_exist(paths=paths, use_threads=False)
     dfs = wr.athena.read_sql_query(
-        sql="SELECT * FROM __test_athena",
+        sql="SELECT * FROM {}".format(table),
         database=glue_database,
         ctas_approach=False,
         chunksize=1,
@@ -126,7 +127,7 @@ def test_athena(path, glue_database, kms_key, workgroup0, workgroup1):
     for df2 in dfs:
         ensure_data_types(df=df2)
     df = wr.athena.read_sql_query(
-        sql="SELECT * FROM __test_athena",
+        sql="SELECT * FROM ".format(table),
         database=glue_database,
         ctas_approach=False,
         workgroup=workgroup1,
@@ -134,8 +135,8 @@ def test_athena(path, glue_database, kms_key, workgroup0, workgroup1):
     )
     assert len(df.index) == 3
     ensure_data_types(df=df)
-    wr.athena.repair_table(table="__test_athena", database=glue_database)
-    wr.catalog.delete_table_if_exists(database=glue_database, table="__test_athena")
+    wr.athena.repair_table(table=table, database=glue_database)
+    wr.catalog.delete_table_if_exists(database=glue_database, table=table)
 
 
 def test_catalog(path, glue_database, glue_table):
