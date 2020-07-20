@@ -6,7 +6,6 @@ import pandas as pd
 import pytest
 
 import awswrangler as wr
-
 from ._utils import (
     ensure_data_types,
     ensure_data_types_category,
@@ -14,6 +13,7 @@ from ._utils import (
     get_df,
     get_df_category,
     get_df_csv,
+    get_df_txt,
     get_df_list,
     get_query_long,
     get_time_str_with_random_suffix,
@@ -136,6 +136,9 @@ def test_athena(path, glue_database, kms_key, workgroup0, workgroup1):
     assert len(df.index) == 3
     ensure_data_types(df=df)
     wr.athena.repair_table(table=table, database=glue_database)
+    assert len(wr.athena.describe_table(database=glue_database, table=table).index) > 0
+    assert wr.catalog.table(database=glue_database, table=table).to_dict() == \
+           wr.athena.describe_table(database=glue_database, table=table).to_dict()
     wr.catalog.delete_table_if_exists(database=glue_database, table=table)
 
 
@@ -720,3 +723,10 @@ def test_read_sql_query_duplicated_col_name_ctas(glue_database):
     sql = "SELECT 1 AS foo, 2 AS foo"
     with pytest.raises(wr.exceptions.InvalidCtasApproachQuery):
         wr.athena.read_sql_query(sql, database=glue_database, ctas_approach=True)
+
+
+def test_parse_describe_table():
+    df = get_df_txt()
+    parsed_df = wr.athena._utils._parse_describe_table(df)
+    assert parsed_df["Partition"].to_list() == [False, False, False, True, True]
+    assert parsed_df["Column Name"].to_list() == ['iint8', 'iint16', 'iint32', 'par0', 'par1']
