@@ -578,7 +578,7 @@ def read_sql_query(
     ----
     ``Batching`` (`chunksize` argument) (Memory Friendly):
 
-    Will anable the function to return a Iterable of DataFrames instead of a regular DataFrame.
+    Will enable the function to return a Iterable of DataFrames instead of a regular DataFrame.
 
     There are two batching strategies on Wrangler:
 
@@ -770,7 +770,7 @@ def read_sql_table(
     ----
     ``Batching`` (`chunksize` argument) (Memory Friendly):
 
-    Will anable the function to return a Iterable of DataFrames instead of a regular DataFrame.
+    Will enable the function to return a Iterable of DataFrames instead of a regular DataFrame.
 
     There are two batching strategies on Wrangler:
 
